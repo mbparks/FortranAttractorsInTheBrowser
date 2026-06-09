@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PLOTTER · LORENZ-63 · FORTRAN/WASM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --paper:       #F2EFE5;
+    --paper-shade: #E8E4D8;
+    --grid:        #C8CFC2;
+    --grid-major:  #A8B19E;
+    --ink:         #1A2B47;
+    --slate:       #2A2E33;
+    --slate-soft:  #5A5F66;
+    --oxblood:     #8B3A2E;
+  }
+
+  html, body { height: 100%; }
+
+  body {
+    background: var(--paper-shade);
+    color: var(--slate);
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.4;
+    display: flex;
+    flex-direction: column;
+    padding: 14px;
+    gap: 10px;
+  }
+
+  /* Nameplate: small, all-mono, like a brass plate riveted to an instrument */
+  .nameplate {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 8px 12px;
+    border: 1px solid var(--slate);
+    background: var(--paper);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .nameplate .sep { color: var(--grid-major); }
+  .nameplate .num { color: var(--oxblood); }
+
+  /* Main grid: plot on left, panel on right */
+  main {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 1fr 232px;
+    gap: 10px;
+  }
+
+  .plot {
+    position: relative;
+    border: 1px solid var(--slate);
+    background-color: var(--paper);
+    /* Graph paper: fine grid every 20px, heavier rule every 100px */
+    background-image:
+      repeating-linear-gradient(0deg,
+        var(--grid) 0, var(--grid) 0.5px,
+        transparent 0.5px, transparent 20px),
+      repeating-linear-gradient(90deg,
+        var(--grid) 0, var(--grid) 0.5px,
+        transparent 0.5px, transparent 20px),
+      repeating-linear-gradient(0deg,
+        var(--grid-major) 0, var(--grid-major) 0.5px,
+        transparent 0.5px, transparent 100px),
+      repeating-linear-gradient(90deg,
+        var(--grid-major) 0, var(--grid-major) 0.5px,
+        transparent 0.5px, transparent 100px);
+    overflow: hidden;
+  }
+
+  #paper {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Maker's stamp: lower-right corner, like a plotter's run header */
+  .stamp {
+    position: absolute;
+    bottom: 14px;
+    right: 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    line-height: 1.45;
+    letter-spacing: 0.08em;
+    color: var(--slate);
+    background: var(--paper);
+    border: 1px solid var(--slate);
+    padding: 7px 10px;
+    text-align: right;
+    pointer-events: none;
+    user-select: none;
+  }
+  .stamp .when {
+    margin-top: 5px;
+    padding-top: 5px;
+    border-top: 1px solid var(--grid-major);
+    color: var(--oxblood);
+  }
+  .stamp .engine {
+    font-weight: 500;
+    letter-spacing: 0.14em;
+  }
+
+  /* Panel: dipswitch-style data entry, no radii, all flat */
+  .panel {
+    background: var(--paper);
+    border: 1px solid var(--slate);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+  }
+
+  .group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .group label, .presets > label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    color: var(--slate-soft);
+  }
+
+  .group input {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    padding: 6px 8px;
+    border: 1px solid var(--slate);
+    background: transparent;
+    color: var(--ink);
+    border-radius: 0;
+    -moz-appearance: textfield;
+  }
+  .group input::-webkit-outer-spin-button,
+  .group input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .group input:focus {
+    outline: none;
+    border-color: var(--oxblood);
+    background: rgba(139, 58, 46, 0.05);
+  }
+
+  .actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .actions button.primary {
+    grid-column: 1 / -1;
+  }
+
+  button {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    padding: 8px 10px;
+    border: 1px solid var(--slate);
+    background: var(--paper);
+    color: var(--slate);
+    cursor: pointer;
+    border-radius: 0;
+    text-transform: uppercase;
+    transition: background-color 80ms linear, color 80ms linear;
+  }
+  button:hover { background: var(--slate); color: var(--paper); }
+  button:active,
+  button.engaged {
+    background: var(--oxblood);
+    color: var(--paper);
+    border-color: var(--oxblood);
+  }
+
+  .presets {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 12px;
+    margin-top: 4px;
+    border-top: 1px solid var(--grid-major);
+  }
+
+  /* Status: bottom strip, mono, with run state */
+  .status {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    padding: 8px 12px;
+    border: 1px solid var(--slate);
+    background: var(--paper);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .status .sep { color: var(--grid-major); }
+  .status .indicator {
+    margin-left: auto;
+    color: var(--oxblood);
+  }
+  .status .indicator.idle { color: var(--slate-soft); }
+  .status .engine-tag { color: var(--slate-soft); }
+  .status .engine-tag.live { color: var(--ink); }
+
+  @media (max-width: 760px) {
+    main {
+      grid-template-columns: 1fr;
+      grid-template-rows: minmax(320px, 1fr) auto;
+    }
+    .stamp { font-size: 9px; padding: 6px 8px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="nameplate">
+  <span>PLOTTER</span>
+  <span class="sep">·</span>
+  <span>LORENZ-63</span>
+  <span class="sep">·</span>
+  <span>FORTRAN/WASM</span>
+  <span class="sep">·</span>
+  <span class="num">FI / DRAFT</span>
+</header>
+
+<main>
+  <section class="plot">
+    <canvas id="paper" aria-label="Lorenz attractor plot"></canvas>
+    <div class="stamp" id="stamp" aria-hidden="true"></div>
+  </section>
+
+  <section class="panel" aria-label="Plotter controls">
+    <div class="group">
+      <label for="sigma">SIGMA &nbsp;σ</label>
+      <input id="sigma" type="number" value="10.0000" step="0.1" inputmode="decimal">
+    </div>
+    <div class="group">
+      <label for="rho">RHO &nbsp;ρ</label>
+      <input id="rho" type="number" value="28.0000" step="0.1" inputmode="decimal">
+    </div>
+    <div class="group">
+      <label for="beta">BETA &nbsp;β</label>
+      <input id="beta" type="number" value="2.6667" step="0.01" inputmode="decimal">
+    </div>
+    <div class="group">
+      <label for="dt">STEP &nbsp;dt</label>
+      <input id="dt" type="number" value="0.0050" step="0.001" inputmode="decimal" min="0.0001">
+    </div>
+
+    <div class="actions">
+      <button class="primary" id="play">Plot</button>
+      <button id="pause">Pause</button>
+      <button id="clear">Clear</button>
+    </div>
+
+    <div class="presets">
+      <label>Presets</label>
+      <button data-preset="classic">Classic 10 / 28 / 8·3⁻¹</button>
+      <button data-preset="dense">Dense 10 / 99.96 / 8·3⁻¹</button>
+      <button data-preset="lazy">Lazy 14 / 13 / 2.8</button>
+    </div>
+  </section>
+</main>
+
+<footer class="status">
+  <span>STEP <span id="step">000000</span></span>
+  <span class="sep">|</span>
+  <span>T <span id="time">0000.000</span></span>
+  <span class="sep">|</span>
+  <span class="engine-tag" id="engine-tag">engine: js</span>
+  <span class="indicator" id="indicator">PLOTTING</span>
+</footer>
+
+<script>
+(() => {
+  'use strict';
+
+  // The bundler replaces this token with a base64-encoded .wasm payload.
+  // If the placeholder is still here, we silently use the JS fallback.
+  const WASM_BASE64 = "{{WASM_BASE64}}";
+
+  const $ = (id) => document.getElementById(id);
+  const canvas = $('paper');
+  const ctx = canvas.getContext('2d');
+
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const state = {
+    running: true,
+    step: 0,
+    t: 0,
+    sigma: 10.0,
+    rho: 28.0,
+    beta: 8 / 3,
+    dt: 0.005,
+    x: 0.1, y: 0.0, z: 0.0,
+    angle: 0,
+    angleRate: reduceMotion ? 0 : 0.0014,
+    lastPx: null,
+  };
+
+  const fortran = {
+    ready: false,
+    exports: null,
+    memory: null,
+    buffer: null,
+  };
+
+  // ---------- WASM bootstrap ----------
+
+  async function initWasm() {
+    if (!WASM_BASE64 || WASM_BASE64.startsWith('{{')) {
+      return false;
+    }
+    try {
+      const raw = atob(WASM_BASE64);
+      const bytes = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+
+      const memory = new WebAssembly.Memory({ initial: 4, maximum: 256 });
+      const imports = { env: { memory } };
+
+      const { instance } = await WebAssembly.instantiate(bytes, imports);
+      const ex = instance.exports;
+
+      const addr = ex.get_buffer_address();
+      const cap  = ex.get_buffer_capacity();
+
+      fortran.memory  = memory;
+      fortran.exports = ex;
+      fortran.buffer  = new Float64Array(memory.buffer, addr, cap);
+
+      ex.set_params(state.sigma, state.rho, state.beta, state.dt);
+      ex.reset_state(state.x, state.y, state.z);
+
+      fortran.ready = true;
+      $('engine-tag').textContent = 'engine: fortran/wasm';
+      $('engine-tag').classList.add('live');
+      return true;
+    } catch (err) {
+      console.warn('[plotter] WASM init failed, using JS fallback:', err);
+      return false;
+    }
+  }
+
+  // ---------- Integrator (JS fallback mirrors the Fortran exactly) ----------
+
+  function deriv(x, y, z) {
+    return [
+      state.sigma * (y - x),
+      x * (state.rho - z) - y,
+      x * y - state.beta * z,
+    ];
+  }
+
+  function stepRK4() {
+    const h = state.dt, half = 0.5 * h, sixth = h / 6;
+    const [k1x, k1y, k1z] = deriv(state.x,            state.y,            state.z);
+    const [k2x, k2y, k2z] = deriv(state.x + half*k1x, state.y + half*k1y, state.z + half*k1z);
+    const [k3x, k3y, k3z] = deriv(state.x + half*k2x, state.y + half*k2y, state.z + half*k2z);
+    const [k4x, k4y, k4z] = deriv(state.x + h*k3x,    state.y + h*k3y,    state.z + h*k3z);
+    state.x += sixth * (k1x + 2*k2x + 2*k3x + k4x);
+    state.y += sixth * (k1y + 2*k2y + 2*k3y + k4y);
+    state.z += sixth * (k1z + 2*k2z + 2*k3z + k4z);
+  }
+
+  // ---------- Projection & drawing ----------
+
+  function project(x, y, z) {
+    // Rotate around the vertical (z) axis, then orthographic to screen.
+    const c = Math.cos(state.angle), s = Math.sin(state.angle);
+    const xr = x * c - y * s;
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const scale = Math.min(canvas.width, canvas.height) / 80;
+    return [
+      cx + xr * scale,
+      cy - (z - 25) * scale,
+    ];
+  }
+
+  function drawSegment(x, y, z, vmag) {
+    const [px, py] = project(x, y, z);
+    if (state.lastPx) {
+      // Plotter behaviour: slower velocity -> heavier ink line.
+      const baseW = Math.max(0.5, 1.7 - 0.035 * vmag);
+      ctx.lineWidth = baseW * (window.devicePixelRatio || 1);
+      ctx.beginPath();
+      ctx.moveTo(state.lastPx[0], state.lastPx[1]);
+      ctx.lineTo(px, py);
+      ctx.stroke();
+    }
+    state.lastPx = [px, py];
+  }
+
+  // ---------- Main loop ----------
+
+  function tick() {
+    if (!state.running) return;
+
+    const N = 60;
+
+    if (fortran.ready) {
+      fortran.exports.set_params(state.sigma, state.rho, state.beta, state.dt);
+      fortran.exports.integrate(N);
+      const buf = fortran.buffer;
+      for (let i = 0; i < N; i++) {
+        const x = buf[3*i], y = buf[3*i+1], z = buf[3*i+2];
+        const [dx, dy, dz] = deriv(x, y, z);
+        drawSegment(x, y, z, Math.hypot(dx, dy, dz));
+        if (i === N - 1) { state.x = x; state.y = y; state.z = z; }
+      }
+    } else {
+      for (let i = 0; i < N; i++) {
+        stepRK4();
+        const [dx, dy, dz] = deriv(state.x, state.y, state.z);
+        drawSegment(state.x, state.y, state.z, Math.hypot(dx, dy, dz));
+      }
+    }
+
+    state.step += N;
+    state.t    += N * state.dt;
+    state.angle += state.angleRate;
+
+    $('step').textContent = String(state.step).padStart(6, '0');
+    $('time').textContent = state.t.toFixed(3).padStart(8, '0');
+
+    requestAnimationFrame(tick);
+  }
+
+  // ---------- Canvas plumbing ----------
+
+  function resizeCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width  = Math.floor(rect.width  * dpr);
+    canvas.height = Math.floor(rect.height * dpr);
+    canvas.style.width  = rect.width + 'px';
+    canvas.style.height = rect.height + 'px';
+    const ink = getComputedStyle(document.documentElement).getPropertyValue('--ink').trim();
+    ctx.strokeStyle = ink;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    state.lastPx = null;
+  }
+
+  function clearPlot() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    state.step = 0;
+    state.t = 0;
+    state.angle = 0;
+    state.lastPx = null;
+    state.x = 0.1; state.y = 0.0; state.z = 0.0;
+    if (fortran.ready) {
+      fortran.exports.reset_state(state.x, state.y, state.z);
+    }
+    stampPaper();
+  }
+
+  function stampPaper() {
+    const now = new Date();
+    const iso = now.toISOString().slice(0, 19).replace('T', ' ') + 'Z';
+    $('stamp').innerHTML =
+      '<div class="engine">FORTRAN/WASM</div>' +
+      '<div>LORENZ-63</div>' +
+      '<div>σ ' + state.sigma.toFixed(4) + '  ρ ' + state.rho.toFixed(4) + '</div>' +
+      '<div>β ' + state.beta.toFixed(4) + '  dt ' + state.dt.toFixed(4) + '</div>' +
+      '<div class="when">' + iso + '</div>';
+  }
+
+  // ---------- Controls ----------
+
+  function readParams() {
+    const s = parseFloat($('sigma').value);
+    const r = parseFloat($('rho').value);
+    const b = parseFloat($('beta').value);
+    const d = parseFloat($('dt').value);
+    if (Number.isFinite(s)) state.sigma = s;
+    if (Number.isFinite(r)) state.rho = r;
+    if (Number.isFinite(b)) state.beta = b;
+    if (Number.isFinite(d) && d > 0) state.dt = d;
+    if (fortran.ready) {
+      fortran.exports.set_params(state.sigma, state.rho, state.beta, state.dt);
+    }
+  }
+
+  ['sigma','rho','beta','dt'].forEach((id) => {
+    $(id).addEventListener('change', () => { readParams(); stampPaper(); });
+  });
+
+  $('play').addEventListener('click', () => {
+    if (!state.running) {
+      state.running = true;
+      $('indicator').textContent = 'PLOTTING';
+      $('indicator').classList.remove('idle');
+      tick();
+    }
+  });
+
+  $('pause').addEventListener('click', () => {
+    state.running = false;
+    $('indicator').textContent = 'IDLE';
+    $('indicator').classList.add('idle');
+  });
+
+  $('clear').addEventListener('click', clearPlot);
+
+  const presets = {
+    classic: { sigma: 10,    rho: 28,    beta: 8/3, dt: 0.005 },
+    dense:   { sigma: 10,    rho: 99.96, beta: 8/3, dt: 0.003 },
+    lazy:    { sigma: 14,    rho: 13,    beta: 2.8, dt: 0.010 },
+  };
+
+  document.querySelectorAll('[data-preset]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const p = presets[btn.dataset.preset];
+      $('sigma').value = p.sigma.toFixed(4);
+      $('rho').value   = p.rho.toFixed(4);
+      $('beta').value  = p.beta.toFixed(4);
+      $('dt').value    = p.dt.toFixed(4);
+      readParams();
+      clearPlot();
+      if (!state.running) {
+        state.running = true;
+        $('indicator').textContent = 'PLOTTING';
+        $('indicator').classList.remove('idle');
+        tick();
+      }
+    });
+  });
+
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(resizeCanvas, 80);
+  });
+
+  // ---------- Boot ----------
+
+  (async () => {
+    resizeCanvas();
+    await initWasm();
+    stampPaper();
+    tick();
+  })();
+})();
+</script>
+</body>
+</html>
