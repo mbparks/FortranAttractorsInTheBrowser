@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PLOTTER · LORENZ-63 · FORTRAN/WASM</title>
+<title>ForTRANart · FORTRAN/WASM</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -35,7 +35,7 @@
     gap: 10px;
   }
 
-  /* Nameplate: small, all-mono, like a brass plate riveted to an instrument */
+  /* Nameplate */
   .nameplate {
     font-family: 'IBM Plex Mono', ui-monospace, monospace;
     font-weight: 500;
@@ -58,7 +58,7 @@
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: 1fr 232px;
+    grid-template-columns: 1fr 244px;
     gap: 10px;
   }
 
@@ -66,7 +66,6 @@
     position: relative;
     border: 1px solid var(--slate);
     background-color: var(--paper);
-    /* Graph paper: fine grid every 20px, heavier rule every 100px */
     background-image:
       repeating-linear-gradient(0deg,
         var(--grid) 0, var(--grid) 0.5px,
@@ -89,7 +88,7 @@
     height: 100%;
   }
 
-  /* Maker's stamp: lower-right corner, like a plotter's run header */
+  /* Maker's stamp */
   .stamp {
     position: absolute;
     bottom: 14px;
@@ -105,6 +104,7 @@
     text-align: right;
     pointer-events: none;
     user-select: none;
+    min-width: 152px;
   }
   .stamp .when {
     margin-top: 5px;
@@ -117,28 +117,35 @@
     letter-spacing: 0.14em;
   }
 
-  /* Panel: dipswitch-style data entry, no radii, all flat */
+  /* Panel */
   .panel {
     background: var(--paper);
     border: 1px solid var(--slate);
     padding: 14px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 14px;
     overflow-y: auto;
+  }
+
+  .control-block {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .control-block > label,
+  .group > label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    color: var(--slate-soft);
   }
 
   .group {
     display: flex;
     flex-direction: column;
     gap: 4px;
-  }
-
-  .group label, .presets > label {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 0.22em;
-    color: var(--slate-soft);
   }
 
   .group input {
@@ -162,6 +169,18 @@
     background: rgba(139, 58, 46, 0.05);
   }
 
+  .model-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  #params-host {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
   .actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -175,7 +194,7 @@
   button {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.16em;
     padding: 8px 10px;
     border: 1px solid var(--slate);
     background: var(--paper);
@@ -193,16 +212,13 @@
     border-color: var(--oxblood);
   }
 
-  .presets {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding-top: 12px;
-    margin-top: 4px;
-    border-top: 1px solid var(--grid-major);
+  .model-btn {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    padding: 8px 6px;
   }
 
-  /* Status: bottom strip, mono, with run state */
+  /* Status */
   .status {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
@@ -215,10 +231,7 @@
     gap: 14px;
   }
   .status .sep { color: var(--grid-major); }
-  .status .indicator {
-    margin-left: auto;
-    color: var(--oxblood);
-  }
+  .status .indicator { margin-left: auto; color: var(--oxblood); }
   .status .indicator.idle { color: var(--slate-soft); }
   .status .engine-tag { color: var(--slate-soft); }
   .status .engine-tag.live { color: var(--ink); }
@@ -228,43 +241,46 @@
       grid-template-columns: 1fr;
       grid-template-rows: minmax(320px, 1fr) auto;
     }
-    .stamp { font-size: 9px; padding: 6px 8px; }
+    .stamp { font-size: 9px; padding: 6px 8px; min-width: 0; }
   }
 </style>
 </head>
 <body>
 
 <header class="nameplate">
-  <span>PLOTTER</span>
+  <span>ForTRANart</span>
   <span class="sep">·</span>
-  <span>LORENZ-63</span>
+  <span id="model-name">LORENZ-63</span>
   <span class="sep">·</span>
   <span>FORTRAN/WASM</span>
   <span class="sep">·</span>
-  <span class="num">FI / DRAFT</span>
+  <span class="num">FI / 017</span>
 </header>
 
 <main>
   <section class="plot">
-    <canvas id="paper" aria-label="Lorenz attractor plot"></canvas>
+    <canvas id="paper" aria-label="Strange attractor plot"></canvas>
     <div class="stamp" id="stamp" aria-hidden="true"></div>
   </section>
 
   <section class="panel" aria-label="Plotter controls">
-    <div class="group">
-      <label for="sigma">SIGMA &nbsp;σ</label>
-      <input id="sigma" type="number" value="10.0000" step="0.1" inputmode="decimal">
+    <div class="control-block">
+      <label>Model</label>
+      <div class="model-grid">
+        <button class="model-btn engaged" data-model="lorenz">Lorenz</button>
+        <button class="model-btn" data-model="aizawa">Aizawa</button>
+        <button class="model-btn" data-model="thomas">Thomas</button>
+        <button class="model-btn" data-model="halvorsen">Halvorsen</button>
+      </div>
     </div>
-    <div class="group">
-      <label for="rho">RHO &nbsp;ρ</label>
-      <input id="rho" type="number" value="28.0000" step="0.1" inputmode="decimal">
+
+    <div class="control-block">
+      <label>Parameters</label>
+      <div id="params-host"></div>
     </div>
+
     <div class="group">
-      <label for="beta">BETA &nbsp;β</label>
-      <input id="beta" type="number" value="2.6667" step="0.01" inputmode="decimal">
-    </div>
-    <div class="group">
-      <label for="dt">STEP &nbsp;dt</label>
+      <label for="dt">Step &nbsp;dt</label>
       <input id="dt" type="number" value="0.0050" step="0.001" inputmode="decimal" min="0.0001">
     </div>
 
@@ -272,13 +288,6 @@
       <button class="primary" id="play">Plot</button>
       <button id="pause">Pause</button>
       <button id="clear">Clear</button>
-    </div>
-
-    <div class="presets">
-      <label>Presets</label>
-      <button data-preset="classic">Classic 10 / 28 / 8·3⁻¹</button>
-      <button data-preset="dense">Dense 10 / 99.96 / 8·3⁻¹</button>
-      <button data-preset="lazy">Lazy 14 / 13 / 2.8</button>
     </div>
   </section>
 </main>
@@ -306,14 +315,78 @@
 
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+  // ---------- Model registry ----------
+  // Each model holds: its id (matches the Fortran model_id), its ordered
+  // params (mapping to pars(1..N) on the Fortran side), default dt, seed
+  // point, projection center & span, and a velocity reference used to
+  // calibrate the plotter's variable line weight.
+
+  const MODELS = {
+    lorenz: {
+      id: 0,
+      label: 'LORENZ-63',
+      params: [
+        { glyph: 'σ', label: 'Sigma', value: 10.0,             step: 0.1  },
+        { glyph: 'ρ', label: 'Rho',   value: 28.0,             step: 0.1  },
+        { glyph: 'β', label: 'Beta',  value: 2.6666666666666667, step: 0.01 },
+      ],
+      dt: 0.005,
+      seed:   [0.1, 0.0, 0.0],
+      center: [0.0, 0.0, 25.0],
+      span:   80,
+      vmagRef: 32,
+    },
+    aizawa: {
+      id: 1,
+      label: 'AIZAWA',
+      params: [
+        { glyph: 'a', label: 'A', value: 0.95, step: 0.01 },
+        { glyph: 'b', label: 'B', value: 0.70, step: 0.01 },
+        { glyph: 'c', label: 'C', value: 0.60, step: 0.01 },
+        { glyph: 'd', label: 'D', value: 3.50, step: 0.05 },
+        { glyph: 'e', label: 'E', value: 0.25, step: 0.01 },
+        { glyph: 'f', label: 'F', value: 0.10, step: 0.01 },
+      ],
+      dt: 0.010,
+      seed:   [0.1,  0.0, 0.0],
+      center: [0.0,  0.0, 0.0],
+      span:   4.6,
+      vmagRef: 3.5,
+    },
+    thomas: {
+      id: 2,
+      label: 'THOMAS',
+      params: [
+        { glyph: 'b', label: 'B', value: 0.19, step: 0.005 },
+      ],
+      dt: 0.05,
+      seed:   [1.1,  1.1, -0.01],
+      center: [0.0,  0.0,  0.0 ],
+      span:   12,
+      vmagRef: 1.8,
+    },
+    halvorsen: {
+      id: 3,
+      label: 'HALVORSEN',
+      params: [
+        { glyph: 'a', label: 'A', value: 1.89, step: 0.01 },
+      ],
+      dt: 0.005,
+      seed:   [-1.48, -1.51, 2.04],
+      center: [ 0.0,   0.0,  0.0 ],
+      span:   22,
+      vmagRef: 30,
+    },
+  };
+
+  let currentModelKey = 'lorenz';
+  const model = () => MODELS[currentModelKey];
+
   const state = {
     running: true,
     step: 0,
     t: 0,
-    sigma: 10.0,
-    rho: 28.0,
-    beta: 8 / 3,
-    dt: 0.005,
+    dt: MODELS.lorenz.dt,
     x: 0.1, y: 0.0, z: 0.0,
     angle: 0,
     angleRate: reduceMotion ? 0 : 0.0014,
@@ -350,11 +423,8 @@
       fortran.memory  = memory;
       fortran.exports = ex;
       fortran.buffer  = new Float64Array(memory.buffer, addr, cap);
-
-      ex.set_params(state.sigma, state.rho, state.beta, state.dt);
-      ex.reset_state(state.x, state.y, state.z);
-
       fortran.ready = true;
+
       $('engine-tag').textContent = 'engine: fortran/wasm';
       $('engine-tag').classList.add('live');
       return true;
@@ -364,14 +434,102 @@
     }
   }
 
+  // ---------- Model application ----------
+
+  function renderParams() {
+    const host = $('params-host');
+    host.innerHTML = '';
+    model().params.forEach((p, i) => {
+      const g = document.createElement('div');
+      g.className = 'group';
+
+      const lab = document.createElement('label');
+      lab.textContent = `${p.label} \u00A0${p.glyph}`;
+
+      const inp = document.createElement('input');
+      inp.type = 'number';
+      inp.step = String(p.step);
+      inp.value = p.value.toFixed(4);
+      inp.inputMode = 'decimal';
+      inp.addEventListener('change', () => {
+        const v = parseFloat(inp.value);
+        if (Number.isFinite(v)) {
+          p.value = v;
+          if (fortran.ready) fortran.exports.set_param(i, v);
+          stampPaper();
+        }
+      });
+
+      g.appendChild(lab);
+      g.appendChild(inp);
+      host.appendChild(g);
+    });
+  }
+
+  function applyModel(reseed) {
+    const m = model();
+
+    $('model-name').textContent = m.label;
+    document.querySelectorAll('[data-model]').forEach((b) => {
+      b.classList.toggle('engaged', b.dataset.model === currentModelKey);
+    });
+
+    if (fortran.ready) {
+      fortran.exports.set_model(m.id);
+      m.params.forEach((p, i) => fortran.exports.set_param(i, p.value));
+      fortran.exports.set_dt(m.dt);
+      if (reseed) fortran.exports.reset_state(m.seed[0], m.seed[1], m.seed[2]);
+    }
+
+    state.dt = m.dt;
+    $('dt').value = m.dt.toFixed(4);
+    if (reseed) {
+      state.x = m.seed[0];
+      state.y = m.seed[1];
+      state.z = m.seed[2];
+    }
+
+    renderParams();
+  }
+
   // ---------- Integrator (JS fallback mirrors the Fortran exactly) ----------
 
   function deriv(x, y, z) {
-    return [
-      state.sigma * (y - x),
-      x * (state.rho - z) - y,
-      x * y - state.beta * z,
-    ];
+    const p = model().params;
+    switch (currentModelKey) {
+      case 'lorenz':
+        return [
+          p[0].value * (y - x),
+          x * (p[1].value - z) - y,
+          x * y - p[2].value * z,
+        ];
+      case 'aizawa': {
+        const a = p[0].value, b = p[1].value, c = p[2].value;
+        const d = p[3].value, e = p[4].value, f = p[5].value;
+        return [
+          (z - b) * x - d * y,
+          d * x + (z - b) * y,
+          c + a*z - z*z*z/3 - (x*x + y*y) * (1 + e*z) + f*z*x*x*x,
+        ];
+      }
+      case 'thomas': {
+        const b = p[0].value;
+        return [
+          Math.sin(y) - b * x,
+          Math.sin(z) - b * y,
+          Math.sin(x) - b * z,
+        ];
+      }
+      case 'halvorsen': {
+        const a = p[0].value;
+        return [
+          -a*x - 4*y - 4*z - y*y,
+          -a*y - 4*z - 4*x - z*z,
+          -a*z - 4*x - 4*y - x*x,
+        ];
+      }
+    }
+    return [0, 0, 0];
   }
 
   function stepRK4() {
@@ -388,23 +546,24 @@
   // ---------- Projection & drawing ----------
 
   function project(x, y, z) {
-    // Rotate around the vertical (z) axis, then orthographic to screen.
+    const m = model();
     const c = Math.cos(state.angle), s = Math.sin(state.angle);
-    const xr = x * c - y * s;
-    const cx = canvas.width / 2;
+    const xr = (x - m.center[0]) * c - (y - m.center[1]) * s;
+    const cx = canvas.width  / 2;
     const cy = canvas.height / 2;
-    const scale = Math.min(canvas.width, canvas.height) / 80;
+    const scale = Math.min(canvas.width, canvas.height) / m.span;
     return [
       cx + xr * scale,
-      cy - (z - 25) * scale,
+      cy - (z - m.center[2]) * scale,
     ];
   }
 
   function drawSegment(x, y, z, vmag) {
+    const m = model();
     const [px, py] = project(x, y, z);
     if (state.lastPx) {
-      // Plotter behaviour: slower velocity -> heavier ink line.
-      const baseW = Math.max(0.5, 1.7 - 0.035 * vmag);
+      const t = Math.min(vmag / m.vmagRef, 1.0);
+      const baseW = 1.6 - 1.1 * t;
       ctx.lineWidth = baseW * (window.devicePixelRatio || 1);
       ctx.beginPath();
       ctx.moveTo(state.lastPx[0], state.lastPx[1]);
@@ -422,7 +581,6 @@
     const N = 60;
 
     if (fortran.ready) {
-      fortran.exports.set_params(state.sigma, state.rho, state.beta, state.dt);
       fortran.exports.integrate(N);
       const buf = fortran.buffer;
       for (let i = 0; i < N; i++) {
@@ -471,7 +629,10 @@
     state.t = 0;
     state.angle = 0;
     state.lastPx = null;
-    state.x = 0.1; state.y = 0.0; state.z = 0.0;
+    const m = model();
+    state.x = m.seed[0];
+    state.y = m.seed[1];
+    state.z = m.seed[2];
     if (fortran.ready) {
       fortran.exports.reset_state(state.x, state.y, state.z);
     }
@@ -479,34 +640,37 @@
   }
 
   function stampPaper() {
+    const m = model();
     const now = new Date();
     const iso = now.toISOString().slice(0, 19).replace('T', ' ') + 'Z';
+
+    let lines = '';
+    const ps = m.params;
+    for (let i = 0; i < ps.length; i += 2) {
+      const left  = `${ps[i].glyph} ${ps[i].value.toFixed(4)}`;
+      const right = (i + 1 < ps.length)
+        ? `${ps[i+1].glyph} ${ps[i+1].value.toFixed(4)}`
+        : '';
+      lines += '<div>' + left + (right ? '\u00A0\u00A0' + right : '') + '</div>';
+    }
+    lines += '<div>dt ' + state.dt.toFixed(4) + '</div>';
+
     $('stamp').innerHTML =
-      '<div class="engine">FORTRAN/WASM</div>' +
-      '<div>LORENZ-63</div>' +
-      '<div>σ ' + state.sigma.toFixed(4) + '  ρ ' + state.rho.toFixed(4) + '</div>' +
-      '<div>β ' + state.beta.toFixed(4) + '  dt ' + state.dt.toFixed(4) + '</div>' +
+      '<div class="engine">ForTRANart · FI 017</div>' +
+      '<div>' + m.label + '</div>' +
+      lines +
       '<div class="when">' + iso + '</div>';
   }
 
   // ---------- Controls ----------
 
-  function readParams() {
-    const s = parseFloat($('sigma').value);
-    const r = parseFloat($('rho').value);
-    const b = parseFloat($('beta').value);
-    const d = parseFloat($('dt').value);
-    if (Number.isFinite(s)) state.sigma = s;
-    if (Number.isFinite(r)) state.rho = r;
-    if (Number.isFinite(b)) state.beta = b;
-    if (Number.isFinite(d) && d > 0) state.dt = d;
-    if (fortran.ready) {
-      fortran.exports.set_params(state.sigma, state.rho, state.beta, state.dt);
+  $('dt').addEventListener('change', () => {
+    const v = parseFloat($('dt').value);
+    if (Number.isFinite(v) && v > 0) {
+      state.dt = v;
+      if (fortran.ready) fortran.exports.set_dt(v);
+      stampPaper();
     }
-  }
-
-  ['sigma','rho','beta','dt'].forEach((id) => {
-    $(id).addEventListener('change', () => { readParams(); stampPaper(); });
   });
 
   $('play').addEventListener('click', () => {
@@ -526,20 +690,10 @@
 
   $('clear').addEventListener('click', clearPlot);
 
-  const presets = {
-    classic: { sigma: 10,    rho: 28,    beta: 8/3, dt: 0.005 },
-    dense:   { sigma: 10,    rho: 99.96, beta: 8/3, dt: 0.003 },
-    lazy:    { sigma: 14,    rho: 13,    beta: 2.8, dt: 0.010 },
-  };
-
-  document.querySelectorAll('[data-preset]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const p = presets[btn.dataset.preset];
-      $('sigma').value = p.sigma.toFixed(4);
-      $('rho').value   = p.rho.toFixed(4);
-      $('beta').value  = p.beta.toFixed(4);
-      $('dt').value    = p.dt.toFixed(4);
-      readParams();
+  document.querySelectorAll('[data-model]').forEach((b) => {
+    b.addEventListener('click', () => {
+      currentModelKey = b.dataset.model;
+      applyModel(true);
       clearPlot();
       if (!state.running) {
         state.running = true;
@@ -561,6 +715,7 @@
   (async () => {
     resizeCanvas();
     await initWasm();
+    applyModel(true);
     stampPaper();
     tick();
   })();

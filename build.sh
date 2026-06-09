@@ -30,7 +30,9 @@ echo "[2/3] linking wasm with exports"
 wasm-ld --no-entry --import-memory --allow-undefined "${OBJ}" -o "${WASM}" \
   --export=get_buffer_address \
   --export=get_buffer_capacity \
-  --export=set_params \
+  --export=set_model \
+  --export=set_param \
+  --export=set_dt \
   --export=reset_state \
   --export=integrate
 
